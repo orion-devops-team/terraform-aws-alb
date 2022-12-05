@@ -46,6 +46,12 @@ module "access_logs" {
 
   attributes = compact(concat(module.this.attributes, ["alb", "access", "logs"]))
 
+  additional_tag_map = {
+    confidentiality = "internal"
+    integrity       = "low"
+    availability    = "low"
+  }
+
   force_destroy                 = var.alb_access_logs_s3_bucket_force_destroy
   force_destroy_enabled         = var.alb_access_logs_s3_bucket_force_destroy_enabled
   lifecycle_configuration_rules = var.lifecycle_configuration_rules
