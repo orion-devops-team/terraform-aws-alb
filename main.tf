@@ -43,6 +43,11 @@ module "access_logs" {
   version                            = "0.14.1"
   enabled                            = module.this.enabled && var.access_logs_enabled && var.access_logs_s3_bucket_id == null
   attributes                         = compact(concat(module.this.attributes, ["alb", "access", "logs"]))
+  additional_tag_map = {
+    confidentiality = "internal"
+    integrity       = "low"
+    availability    = "low"
+  }
   lifecycle_rule_enabled             = var.lifecycle_rule_enabled
   enable_glacier_transition          = var.enable_glacier_transition
   expiration_days                    = var.expiration_days
