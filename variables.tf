@@ -100,7 +100,7 @@ variable "access_logs_enabled" {
 
 variable "access_logs_s3_bucket_id" {
   type        = string
-  default     = null
+  default     = ""
   description = "An external S3 Bucket name to store access logs in. If specified, no logging bucket will be created."
 }
 
