@@ -330,3 +330,9 @@ variable "default_target_group_enabled" {
   description = "Whether the default target group should be created or not."
   default     = true
 }
+
+variable "lb_s3_buckets_retrict_public_expose" {
+  type        = bool
+  default     = true
+  description = "Gitlab buckets retrict public expose"
+}

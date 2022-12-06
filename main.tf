@@ -39,24 +39,60 @@ resource "aws_security_group_rule" "https_ingress" {
 }
 
 module "access_logs" {
-  source                             = "cloudposse/lb-s3-bucket/aws"
-  version                            = "0.14.1"
-  enabled                            = module.this.enabled && var.access_logs_enabled && var.access_logs_s3_bucket_id == null
-  attributes                         = compact(concat(module.this.attributes, ["alb", "access", "logs"]))
-  tags                               = merge(module.this.tags, {
-    confidentiality = "internal"
-    integrity       = "low"
-    availability    = "low"
+  source                  = "terraform-aws-modules/s3-bucket/aws"
+  version                 = "v3.3.0"
+  acl                     = "private"
+  block_public_acls       = var.lb_s3_buckets_retrict_public_expose
+  block_public_policy     = var.lb_s3_buckets_retrict_public_expose
+  restrict_public_buckets = var.lb_s3_buckets_retrict_public_expose
+  ignore_public_acls      = var.lb_s3_buckets_retrict_public_expose
+  bucket                  = "orion-alb-access-logs"
+  attach_policy           = true
+  policy = jsonencode(
+    {
+      "Version" : "2012-10-17",
+      "Statement" : [
+        {
+          "Effect" : "Allow",
+          "Principal" : "*",
+          "Action" : [
+            "s3:PutObjectAcl",
+            "s3:PutObject",
+            "s3:ListMultipartUploadParts",
+            "s3:GetObject",
+            "s3:DeleteObject",
+            "s3:AbortMultipartUpload"
+          ],
+          "Resource" : "arn:aws:s3:::orion-alb-access-logs/*",
+          "Condition" : {
+            "StringEquals" : {
+              "aws:SourceVpc" : "${var.vpc_id}"
+            }
+          }
+        },
+        {
+          "Effect" : "Allow",
+          "Principal" : "*",
+          "Action" : [
+            "s3:ListBucket",
+            "s3:ListBucketMultipartUploads"
+          ],
+          "Resource" : "arn:aws:s3:::orion-alb-access-logs",
+          "Condition" : {
+            "StringEquals" : {
+              "aws:SourceVpc" : "${var.vpc_id}"
+            }
+          }
+        }
+      ]
   })
-  lifecycle_rule_enabled             = var.lifecycle_rule_enabled
-  enable_glacier_transition          = var.enable_glacier_transition
-  expiration_days                    = var.expiration_days
-  glacier_transition_days            = var.glacier_transition_days
-  noncurrent_version_expiration_days = var.noncurrent_version_expiration_days
-  noncurrent_version_transition_days = var.noncurrent_version_transition_days
-  standard_transition_days           = var.standard_transition_days
-  force_destroy                      = var.alb_access_logs_s3_bucket_force_destroy
-  context                            = module.this.context
+  force_destroy = var.alb_access_logs_s3_bucket_force_destroy
+  tags          = {
+  "confidentiality" = "public"
+  "availability"    = "low"
+  "integrity"       = "low"
+}
+
 }
 
 module "default_load_balancer_label" {
@@ -88,7 +124,7 @@ resource "aws_lb" "default" {
   drop_invalid_header_fields       = var.drop_invalid_header_fields
 
   access_logs {
-    bucket  = try(element(compact([var.access_logs_s3_bucket_id, module.access_logs.bucket_id]), 0), "")
+    bucket  = try(element(compact([var.access_logs_s3_bucket_id, module.access_logs.s3_bucket_id]), 0), "")
     prefix  = var.access_logs_prefix
     enabled = var.access_logs_enabled
   }
