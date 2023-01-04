@@ -25,6 +25,7 @@ resource "aws_security_group_rule" "http_ingress" {
   cidr_blocks       = var.http_ingress_cidr_blocks
   prefix_list_ids   = var.http_ingress_prefix_list_ids
   security_group_id = join("", aws_security_group.default.*.id)
+  description       = "Enable inbound action to port ${var.http_port}"
 }
 
 resource "aws_security_group_rule" "https_ingress" {
@@ -36,6 +37,7 @@ resource "aws_security_group_rule" "https_ingress" {
   cidr_blocks       = var.https_ingress_cidr_blocks
   prefix_list_ids   = var.https_ingress_prefix_list_ids
   security_group_id = join("", aws_security_group.default.*.id)
+  description       = "Enable inbound action to port ${var.https_port}"
 }
 
 module "default_load_balancer_label" {
