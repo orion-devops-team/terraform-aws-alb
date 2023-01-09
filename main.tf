@@ -1,43 +1,73 @@
+locals {
+  ingress_http_rules_port = module.this.enabled && var.security_group_enabled && var.http_enabled ? [
+    {
+      from_port       = var.http_port
+      to_port         = var.http_port
+      protocol        = "tcp"
+      cidr_blocks     = var.http_ingress_cidr_blocks
+      prefix_list_ids = var.http_ingress_prefix_list_ids
+  }] : []
+  ingress_https_rules_port = module.this.enabled && var.security_group_enabled && var.https_enabled ? [
+    {
+      from_port       = var.https_port
+      to_port         = var.https_port
+      protocol        = "tcp"
+      cidr_blocks     = var.https_ingress_cidr_blocks
+      prefix_list_ids = var.http_ingress_prefix_list_ids
+  }] : []
+
+  ingress_rules_ports = concat(local.ingress_http_rules_port, local.ingress_https_rules_port)
+}
+
 resource "aws_security_group" "default" {
   count       = module.this.enabled && var.security_group_enabled ? 1 : 0
   description = "Controls access to the ALB (HTTP/HTTPS)"
   vpc_id      = var.vpc_id
   name        = module.this.id
   tags        = module.this.tags
+
+  dynamic "ingress" {
+    for_each = local.ingress_rules_ports
+    content {
+      from_port       = ingress.value.from_port
+      to_port         = ingress.value.to_port
+      protocol        = ingress.value.protocol
+      cidr_blocks     = ingress.value.cidr_blocks
+      prefix_list_ids = ingress.value.prefix_list_ids
+    }
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
 }
 
-resource "aws_security_group_rule" "egress" {
-  count             = module.this.enabled && var.security_group_enabled ? 1 : 0
-  type              = "egress"
-  from_port         = "0"
-  to_port           = "0"
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = join("", aws_security_group.default.*.id)
-}
+module "access_logs" {
+  source  = "cloudposse/lb-s3-bucket/aws"
+  version = "0.16.0"
 
-resource "aws_security_group_rule" "http_ingress" {
-  count             = module.this.enabled && var.security_group_enabled && var.http_enabled ? 1 : 0
-  type              = "ingress"
-  from_port         = var.http_port
-  to_port           = var.http_port
-  protocol          = "tcp"
-  cidr_blocks       = var.http_ingress_cidr_blocks
-  prefix_list_ids   = var.http_ingress_prefix_list_ids
-  security_group_id = join("", aws_security_group.default.*.id)
-  description       = "Enable inbound action to port ${var.http_port}"
-}
+  enabled = module.this.enabled && var.access_logs_enabled && var.access_logs_s3_bucket_id == null
 
-resource "aws_security_group_rule" "https_ingress" {
-  count             = module.this.enabled && var.security_group_enabled && var.https_enabled ? 1 : 0
-  type              = "ingress"
-  from_port         = var.https_port
-  to_port           = var.https_port
-  protocol          = "tcp"
-  cidr_blocks       = var.https_ingress_cidr_blocks
-  prefix_list_ids   = var.https_ingress_prefix_list_ids
-  security_group_id = join("", aws_security_group.default.*.id)
-  description       = "Enable inbound action to port ${var.https_port}"
+  attributes = compact(concat(module.this.attributes, ["alb", "access", "logs"]))
+
+  force_destroy                 = var.alb_access_logs_s3_bucket_force_destroy
+  force_destroy_enabled         = var.alb_access_logs_s3_bucket_force_destroy_enabled
+  lifecycle_configuration_rules = var.lifecycle_configuration_rules
+
+  # TODO: deprecate these inputs in favor of `lifecycle_configuration_rules`
+  lifecycle_rule_enabled             = var.lifecycle_rule_enabled
+  enable_glacier_transition          = var.enable_glacier_transition
+  expiration_days                    = var.expiration_days
+  glacier_transition_days            = var.glacier_transition_days
+  noncurrent_version_expiration_days = var.noncurrent_version_expiration_days
+  noncurrent_version_transition_days = var.noncurrent_version_transition_days
+  standard_transition_days           = var.standard_transition_days
+
+  context = module.this.context
 }
 
 module "default_load_balancer_label" {
@@ -67,9 +97,10 @@ resource "aws_lb" "default" {
   ip_address_type                  = var.ip_address_type
   enable_deletion_protection       = var.deletion_protection_enabled
   drop_invalid_header_fields       = var.drop_invalid_header_fields
+  preserve_host_header             = var.preserve_host_header
 
   access_logs {
-    bucket  = var.access_logs_s3_bucket_id
+    bucket  = try(element(compact([var.access_logs_s3_bucket_id, module.access_logs.bucket_id]), 0), "")
     prefix  = var.access_logs_prefix
     enabled = var.access_logs_enabled
   }
@@ -88,12 +119,14 @@ resource "aws_lb_target_group" "default" {
   name                 = var.target_group_name == "" ? module.default_target_group_label.id : substr(var.target_group_name, 0, var.target_group_name_max_length)
   port                 = var.target_group_port
   protocol             = var.target_group_protocol
+  protocol_version     = var.target_group_protocol_version
   vpc_id               = var.vpc_id
   target_type          = var.target_group_target_type
   deregistration_delay = var.deregistration_delay
+  slow_start           = var.slow_start
 
   health_check {
-    protocol            = var.target_group_protocol
+    protocol            = var.health_check_protocol != null ? var.health_check_protocol : var.target_group_protocol
     path                = var.health_check_path
     port                = var.health_check_port
     timeout             = var.health_check_timeout
@@ -129,6 +162,7 @@ resource "aws_lb_listener" "http_forward" {
   load_balancer_arn = join("", aws_lb.default.*.arn)
   port              = var.http_port
   protocol          = "HTTP"
+  tags              = merge(module.this.tags, var.listener_additional_tags)
 
   default_action {
     target_group_arn = var.listener_http_fixed_response != null ? null : join("", aws_lb_target_group.default.*.arn)
@@ -150,6 +184,7 @@ resource "aws_lb_listener" "http_redirect" {
   load_balancer_arn = join("", aws_lb.default.*.arn)
   port              = var.http_port
   protocol          = "HTTP"
+  tags              = merge(module.this.tags, var.listener_additional_tags)
 
   default_action {
     target_group_arn = join("", aws_lb_target_group.default.*.arn)
@@ -172,6 +207,7 @@ resource "aws_lb_listener" "https" {
   protocol        = "HTTPS"
   ssl_policy      = var.https_ssl_policy
   certificate_arn = var.certificate_arn
+  tags            = merge(module.this.tags, var.listener_additional_tags)
 
   default_action {
     target_group_arn = var.listener_https_fixed_response != null ? null : join("", aws_lb_target_group.default.*.arn)
