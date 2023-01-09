@@ -1,24 +1,3 @@
-locals {
-  ingress_http_rules_port = module.this.enabled && var.security_group_enabled && var.http_enabled ? [
-    {
-      from_port       = var.http_port
-      to_port         = var.http_port
-      protocol        = "tcp"
-      cidr_blocks     = var.http_ingress_cidr_blocks
-      prefix_list_ids = var.http_ingress_prefix_list_ids
-  }] : []
-  ingress_https_rules_port = module.this.enabled && var.security_group_enabled && var.https_enabled ? [
-    {
-      from_port       = var.https_port
-      to_port         = var.https_port
-      protocol        = "tcp"
-      cidr_blocks     = var.https_ingress_cidr_blocks
-      prefix_list_ids = var.http_ingress_prefix_list_ids
-  }] : []
-
-  ingress_rules_ports = concat(local.ingress_http_rules_port, local.ingress_https_rules_port)
-}
-
 resource "aws_security_group" "default" {
   count       = module.this.enabled && var.security_group_enabled ? 1 : 0
   description = "Controls access to the ALB (HTTP/HTTPS)"
@@ -26,15 +5,20 @@ resource "aws_security_group" "default" {
   name        = module.this.id
   tags        = module.this.tags
 
-  dynamic "ingress" {
-    for_each = local.ingress_rules_ports
-    content {
-      from_port       = ingress.value.from_port
-      to_port         = ingress.value.to_port
-      protocol        = ingress.value.protocol
-      cidr_blocks     = ingress.value.cidr_blocks
-      prefix_list_ids = ingress.value.prefix_list_ids
-    }
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    cidr_blocks     = ["200.13.235.58/32","190.69.154.37/32","64.191.220.148/32","190.131.195.178/32","190.71.24.170/32","190.109.6.82/32","200.42.23.2/32","181.30.9.226/32","181.30.169.58/32","45.178.3.194/32","200.32.93.2/32","190.210.134.125/32","201.55.101.137/32","8.243.150.106/32","189.125.49.228/32","201.63.25.34/32","186.10.64.22/32","190.215.161.198/32","189.201.133.225/32","201.163.8.162/32","190.99.102.130/32","200.108.200.66/32","161.0.122.10/32","200.75.140.90/32","200.41.179.202/32","190.216.95.114/32","190.210.146.233/32","34.230.211.143/32","54.208.10.185/32","54.85.91.226/32","44.197.144.69/32"]
+    prefix_list_ids = []
+  }
+
+  ingress {
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    cidr_blocks     = ["200.13.235.58/32","190.69.154.37/32","64.191.220.148/32","190.131.195.178/32","190.71.24.170/32","190.109.6.82/32","200.42.23.2/32","181.30.9.226/32","181.30.169.58/32","45.178.3.194/32","200.32.93.2/32","190.210.134.125/32","201.55.101.137/32","8.243.150.106/32","189.125.49.228/32","201.63.25.34/32","186.10.64.22/32","190.215.161.198/32","189.201.133.225/32","201.163.8.162/32","190.99.102.130/32","200.108.200.66/32","161.0.122.10/32","200.75.140.90/32","200.41.179.202/32","190.216.95.114/32","190.210.146.233/32","34.230.211.143/32","54.208.10.185/32","54.85.91.226/32","44.197.144.69/32"]
+    prefix_list_ids = []
   }
 
   egress {
