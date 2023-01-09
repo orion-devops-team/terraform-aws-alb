@@ -97,10 +97,9 @@ resource "aws_lb" "default" {
   ip_address_type                  = var.ip_address_type
   enable_deletion_protection       = var.deletion_protection_enabled
   drop_invalid_header_fields       = var.drop_invalid_header_fields
-  preserve_host_header             = var.preserve_host_header
 
   access_logs {
-    bucket  = try(element(compact([var.access_logs_s3_bucket_id, module.access_logs.bucket_id]), 0), "")
+    bucket  = var.access_logs_s3_bucket_id
     prefix  = var.access_logs_prefix
     enabled = var.access_logs_enabled
   }
@@ -119,11 +118,9 @@ resource "aws_lb_target_group" "default" {
   name                 = var.target_group_name == "" ? module.default_target_group_label.id : substr(var.target_group_name, 0, var.target_group_name_max_length)
   port                 = var.target_group_port
   protocol             = var.target_group_protocol
-  protocol_version     = var.target_group_protocol_version
   vpc_id               = var.vpc_id
   target_type          = var.target_group_target_type
   deregistration_delay = var.deregistration_delay
-  slow_start           = var.slow_start
 
   health_check {
     protocol            = var.health_check_protocol != null ? var.health_check_protocol : var.target_group_protocol
