@@ -178,7 +178,6 @@ resource "aws_lb_listener" "https" {
   protocol        = "HTTPS"
   ssl_policy      = var.https_ssl_policy
   certificate_arn = var.certificate_arn
-  tags            = merge(module.this.tags, var.listener_additional_tags)
 
   default_action {
     target_group_arn = var.listener_https_fixed_response != null ? null : join("", aws_lb_target_group.default.*.arn)
