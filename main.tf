@@ -6,21 +6,21 @@ resource "aws_security_group" "default" {
   tags        = module.this.tags
 
   ingress {
-    from_port       = 80
-    to_port         = 80
+    from_port       = var.http_port
+    to_port         = var.http_port
     protocol        = "tcp"
-    cidr_blocks     = ["190.210.146.233/32", "200.41.179.202/32", "190.216.95.114/32", "200.13.235.58/32", "190.69.154.37/32", "34.230.211.143/32", "54.208.10.185/32", "54.85.91.226/32", "44.197.144.69/32"]
-    prefix_list_ids = []
-    description     = "Enable access to port 80"
+    cidr_blocks     = var.http_ingress_cidr_blocks
+    prefix_list_ids = var.http_ingress_prefix_list_ids
+    description     = "Enable inbound action to port ${var.http_port}"
   }
 
   ingress {
-    from_port       = 443
-    to_port         = 443
+    from_port       = var.https_port
+    to_port         = var.https_port
     protocol        = "tcp"
-    cidr_blocks     = ["190.210.146.233/32", "200.41.179.202/32", "190.216.95.114/32", "200.13.235.58/32", "190.69.154.37/32", "34.230.211.143/32", "54.208.10.185/32", "54.85.91.226/32", "44.197.144.69/32"]
-    prefix_list_ids = []
-    description     = "Enable access to port 443"
+    cidr_blocks     = var.https_ingress_cidr_blocks
+    prefix_list_ids = var.https_ingress_prefix_list_ids
+    description     = "Enable access to port ${var.https_port}"
   }
 
   egress {
