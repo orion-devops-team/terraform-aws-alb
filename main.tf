@@ -1,4 +1,5 @@
 resource "aws_security_group" "default" {
+  #checkov:skip=CS_AWS_EC2_03:The ALB is a public...
   count       = module.this.enabled && var.security_group_enabled ? 1 : 0
   description = "Controls access to the ALB (HTTP/HTTPS)"
   vpc_id      = var.vpc_id
@@ -43,7 +44,6 @@ module "default_load_balancer_label" {
 resource "aws_lb" "default" {
   #bridgecrew:skip=BC_AWS_NETWORKING_41 - Skipping Ensure that ALB Drops HTTP Headers
   #bridgecrew:skip=BC_AWS_LOGGING_22 - Skipping Ensure ELBv2 has Access Logging Enabled
-  #checkov:skip=CS_AWS_EC2_03:The ALB is a public...
   count              = module.this.enabled ? 1 : 0
   name               = var.load_balancer_name == "" ? module.default_load_balancer_label.id : substr(var.load_balancer_name, 0, var.load_balancer_name_max_length)
   tags               = module.this.tags
